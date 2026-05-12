@@ -6,7 +6,7 @@
 ![Status](https://img.shields.io/badge/Status-Complete-brightgreen)
 
 > **Predicting bearing faults in industrial motors using vibration signal statistics and Random Forest classification.**  
-> Built on the CWRU (Case Western Reserve University) Bearing Dataset — a standard benchmark in predictive maintenance research.
+> Built on the CWRU (Case Western Reserve University) Bearing Dataset , a standard benchmark in predictive maintenance research.
 
 ---
 
@@ -27,7 +27,7 @@
 
 Rolling-element bearing faults account for a large fraction of industrial motor failures. Early, automated fault detection prevents unplanned downtime and costly repairs.
 
-This project builds a **multi-class classifier** that identifies which part of a bearing is damaged (ball, inner race, or outer race) and how severe the damage is — using only simple statistical features extracted from raw vibration signals.
+This project builds a **multi-class classifier** that identifies which part of a bearing is damaged (ball, inner race, or outer race) and how severe the damage is, using only simple statistical features extracted from raw vibration signals.
 
 **10 classes:** Healthy + 3 fault locations × 3 defect diameters (0.007", 0.014", 0.021")
 
