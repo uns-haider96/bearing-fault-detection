@@ -16,7 +16,8 @@
 - [Features](#-features)
 - [Methodology](#-methodology)
 - [Results](#-results)
-- [Visualisations](#-visualisations)
+- [What the Features Show](#-what-the-features-show)
+- [Limitations](#️-limitations)
 - [Project Structure](#-project-structure)
 - [How to Run](#-how-to-run)
 - [Next Steps](#-next-steps)
@@ -56,19 +57,17 @@ Defects were introduced at a single point by EDM (electrical discharge) machinin
 
 Each 2048-sample window is compressed into 9 time-domain statistics:
 
-| Feature | Formula | Why it matters |
+| Feature | Definition | Why it matters |
 |---|---|---|
 | `max` | Peak positive amplitude | Captures extremes |
 | `min` | Peak negative amplitude | Captures extremes |
-| `mean` | Average value | Near 0 for vibration (low signal) |
+| `mean` | Average value | Close to zero for vibration; mostly reflects sensor offset |
 | `sd` | Standard deviation | Signal spread |
 | `rms` | √(mean of squares) | Overall vibration energy |
-| `skewness` | 3rd moment | Signal asymmetry |
-| `kurtosis` | 4th moment | **Spikiness — strongest fault indicator** |
-| `crest` | Peak / RMS | Sensitive to early-stage faults |
-| `form` | RMS / mean absolute | Shape descriptor |
-
-> **Key insight:** Healthy bearing vibration is approximately Gaussian (kurtosis ≈ 3). A defect creates periodic impulses, spiking kurtosis to 10–30+. This is the primary discriminating feature.
+| `skewness` | 3rd standardised moment | Signal asymmetry |
+| `kurtosis` | 4th standardised moment (excess, so Gaussian = 0) | Impulsiveness from defect impacts |
+| `crest` | Peak / RMS | Sensitive to isolated impacts |
+| `form` | RMS / mean absolute | Waveform shape |
 
 ---
 
@@ -99,9 +98,9 @@ Exploratory Data Analysis
          │
          ▼
      Evaluation
-  - 5-fold cross-validation
-  - Per-class F1, precision, recall
-  - Confusion matrix heatmap
+  - 5-fold stratified cross-validation
+  - Per-class precision, recall, F1
+  - Confusion matrix
          │
          ▼
   Feature Importance
@@ -118,84 +117,72 @@ Exploratory Data Analysis
 
 ## 📊 Results
 
-### Cross-Validation (5-fold, stratified)
+All numbers below are the actual outputs of `bearing_fault_detection.ipynb`.
 
-| | Accuracy |
+| Evaluation | Accuracy |
 |---|---|
-| Fold 1 | ~0.97 |
-| Fold 2 | ~0.97 |
-| Fold 3 | ~0.97 |
-| Fold 4 | ~0.96 |
-| Fold 5 | ~0.97 |
-| **Mean ± Std** | **~0.97 ± 0.004** |
+| 5-fold stratified cross-validation | **96.4% ± 0.8%** (folds: 96.3, 96.1, 97.8, 96.3, 95.4) |
+| Held-out test set (230 windows, 23 per class) | **92.2%** (macro F1 0.92) |
 
-> Results may vary slightly. Run the notebook to see exact scores.
+### Per-class performance (held-out test set)
 
-### Classification Report (held-out test set)
+| Class | Precision | Recall | F1 |
+|---|---|---|---|
+| Normal | 1.00 | 1.00 | 1.00 |
+| Ball 0.007" | 0.94 | 0.74 | 0.83 |
+| Ball 0.014" | 0.96 | 1.00 | 0.98 |
+| Ball 0.021" | 0.89 | 0.70 | 0.78 |
+| Inner race 0.007" | 0.96 | 1.00 | 0.98 |
+| Inner race 0.014" | 1.00 | 1.00 | 1.00 |
+| Inner race 0.021" | 0.88 | 1.00 | 0.94 |
+| Outer race 0.007" | 1.00 | 1.00 | 1.00 |
+| Outer race 0.014" | 0.68 | 0.83 | 0.75 |
+| Outer race 0.021" | 0.96 | 0.96 | 0.96 |
 
-The model achieves high precision and recall across all 10 fault classes. Most confusion occurs between fault classes of different severity at the same location (e.g., Ball_007 vs Ball_014), which is expected — as severity increases, signal statistics gradually shift.
+Healthy bearings and all inner-race faults are identified almost perfectly. Errors concentrate in three classes, **Ball 0.007", Ball 0.021" and Outer race 0.014"**, which are confused with one another. These are exactly the classes whose kurtosis stays near the healthy level (see below): without impulsive content, the time-domain statistics carry little to separate them.
 
----
-
-## 📈 Visualisations
-
-### Kurtosis by Fault Class
-
-Healthy bearings show low, consistent kurtosis. Faulty bearings spike dramatically — especially at larger defect diameters.
-
-```
-Kurtosis distribution across 10 fault classes:
-
-  30 ┤                ╭─╮
-     │                │ │          ╭╮
-  20 ┤         ╭╮     │ │    ╭╮    ││
-     │         ││     │ │    ││    ││    ╭╮
-  10 ┤    ╭╮   ││  ╭╮ │ │ ╭╮ ││ ╭╮ ││ ╭╮ ││
-     │╭╮  ││   ││  ││ │ │ ││ ││ ││ ││ ││ ││
-   3 ┼┴┴──┴┴───┴┴──┴┴─┴─┴─┴┴─┴┴─┴┴─┴┴─┴┴─┴┴
-      N  B007 B014 B021 IR7 IR14 IR21 OR7 OR14 OR21
-```
-
-*(See the notebook for the full rendered matplotlib boxplot)*
+![Confusion matrix](figures/confusion_matrix.png)
 
 ---
 
-### Feature Importance
+## 📈 What the Features Show
 
-```
-kurtosis   ████████████████████░░░░  ~35%
-crest      ████████████░░░░░░░░░░░░  ~22%
-rms        ██████░░░░░░░░░░░░░░░░░░  ~14%
-sd         █████░░░░░░░░░░░░░░░░░░░  ~12%
-form       ████░░░░░░░░░░░░░░░░░░░░  ~8%
-skewness   ██░░░░░░░░░░░░░░░░░░░░░░  ~4%
-max        █░░░░░░░░░░░░░░░░░░░░░░░  ~3%
-min        █░░░░░░░░░░░░░░░░░░░░░░░  ~2%
-mean       ░░░░░░░░░░░░░░░░░░░░░░░░  <1%
-```
+### Kurtosis by fault class
 
-**Kurtosis + crest factor together explain ~57% of the model's decisions** — consistent with bearing diagnostics theory.
+![Kurtosis by fault class](figures/kurtosis_by_class.png)
+
+Healthy windows sit at an excess kurtosis near 0, as expected for near-Gaussian vibration. Several faults are strongly impulsive (Outer race 0.021" has a median around 13), but kurtosis **does not rise monotonically with defect size**: Ball 0.021" and Outer race 0.014" look almost as Gaussian as the healthy bearing. This is a known limitation of kurtosis as a stand-alone indicator, and it explains where the classifier fails.
+
+### RMS and crest factor
+
+![RMS and crest factor by class](figures/rms_crest_by_class.png)
+
+### Feature importance
+
+![Feature importance](figures/feature_importance.png)
+
+| Feature | Importance |
+|---|---|
+| sd | 0.200 |
+| rms | 0.196 |
+| mean | 0.165 |
+| kurtosis | 0.120 |
+| min | 0.090 |
+| max | 0.090 |
+| form | 0.073 |
+| crest | 0.051 |
+| skewness | 0.014 |
+
+Energy-based features (sd, rms) dominate. The high importance of `mean` is a warning sign rather than a finding: vibration has no physical mean, so this feature mostly captures the DC offset of each individual recording. The model may partly be recognising *which recording* a window came from, not the fault itself.
 
 ---
 
-### Confusion Matrix (structure)
+## ⚠️ Limitations
 
-```
-              Predicted
-              N   B7  B14 B21 IR7 IR14 IR21 OR7 OR14 OR21
-          N  [23   0   0   0   0   0   0   0   0   0 ]
-         B7  [ 0  23   0   0   0   0   0   0   0   0 ]
-        B14  [ 0   0  23   0   0   0   0   0   0   0 ]
-Actual  B21  [ 0   0   0  23   0   0   0   0   0   0 ]
-        IR7  [ 0   0   0   0  23   0   0   0   0   0 ]
-       IR14  [ 0   0   0   0   0  22   1   0   0   0 ]
-       IR21  [ 0   0   0   0   0   0  23   0   0   0 ]
-        OR7  [ 0   0   0   0   0   0   0  23   0   0 ]
-       OR14  [ 0   0   0   0   0   0   0   0  23   0 ]
-       OR21  [ 0   0   0   0   0   0   0   0   0  23 ]
-```
-
-*(Approximate — run the notebook for the exact heatmap)*
+- **Optimistic split.** Windows are cut from one continuous recording per class and then split at random, so training and test windows come from the same recording. Accuracy on a new recording, a new bearing or a different load would be lower. A recording-level or load-level split (e.g. train on 0–2 HP, test on 3 HP) is the stricter test.
+- **Single load condition** (1 HP) and a single sensor (drive end).
+- **Time-domain features only.** Bearing faults are classically diagnosed from characteristic frequencies (BPFI, BPFO, BSF) in the envelope spectrum, which this model does not use.
+- **Gini importance** is biased toward continuous, high-variance features and should be read with care.
 
 ---
 
@@ -204,9 +191,10 @@ Actual  B21  [ 0   0   0  23   0   0   0   0   0   0 ]
 ```
 bearing-fault-detection/
 │
-├── bearing_fault_detection.ipynb   # Main notebook (this project)
-├── feature_time_48k_2048_load_1.csv  # Dataset (download from CWRU or Kaggle)
-└── README.md                       # This file
+├── bearing_fault_detection.ipynb     # Main notebook (this project)
+├── feature_time_48k_2048_load_1.csv  # Pre-computed time-domain features (CWRU, 48 kHz, 1 HP)
+├── figures/                          # Figures exported from the notebook outputs
+└── README.md                         # This file
 ```
 
 ---
@@ -224,7 +212,7 @@ bearing-fault-detection/
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/YOUR_USERNAME/bearing-fault-detection.git
+git clone https://github.com/uns-haider96/bearing-fault-detection.git
 cd bearing-fault-detection
 
 # 2. Install dependencies
@@ -251,8 +239,10 @@ jupyter
 
 | Idea | Impact |
 |---|---|
+| Recording- or load-level split (train 0–2 HP, test 3 HP) | Honest generalisation estimate |
 | Test across all 4 load conditions (0–3 HP) | Generalisation |
-| Add FFT/frequency-domain features (BPFI, BPFO, BSF) | Richer fingerprints |
+| Add envelope-spectrum features at BPFI, BPFO, BSF | Separates the low-kurtosis faults |
+| Drop `mean` (sensor offset) and re-evaluate | Removes a recording-identity shortcut |
 | Replace Gini importance with SHAP values | More reliable attribution |
 | Compare vs SVM, XGBoost, 1D-CNN on raw signals | Model selection |
 | Evaluate robustness to artificial sensor noise | Real-world readiness |
